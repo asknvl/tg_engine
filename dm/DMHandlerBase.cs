@@ -17,9 +17,9 @@ namespace tg_engine.dm
         #endregion
 
         #region properties                
-        protected DMStartupSettings settings { get; private set; }
-        protected UserApiHandlerBase user { get; private set; }
-        string is_active { get; set; }
+        public DMStartupSettings settings { get; private set; }
+        public UserApiHandlerBase user { get; private set; }        
+        public DMHandlerStatus status { get; private set; }  
         #endregion
 
         public DMHandlerBase(DMStartupSettings settings, ILogger logger)
@@ -34,12 +34,23 @@ namespace tg_engine.dm
         {
             user = userApiFactory.Get(settings.account.phone_number, settings.account.two_fa);
             await Task.CompletedTask;
+
+            status = DMHandlerStatus.active;
         }
 
         public virtual void Stop()
-        {            
+        {
+            status = DMHandlerStatus.inactive;
         }
         #endregion
 
+    }
+
+    public enum DMHandlerStatus
+    {
+        active,
+        inactive,
+        verification,
+        banned
     }
 }

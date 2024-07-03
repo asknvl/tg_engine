@@ -1,12 +1,10 @@
-﻿
-using logger;
+﻿using logger;
 using System.Diagnostics;
-using System.Formats.Asn1;
 using System.Reflection;
 using tg_engine.config;
 using tg_engine.database.postgre;
-using tg_engine.database.postgre.models;
 using tg_engine.dm;
+using tg_engine.rest;
 
 namespace tg_engine
 {
@@ -19,6 +17,8 @@ namespace tg_engine
         #region vars
         ILogger logger;                
         IPostgreProvider postgreProvider;
+
+        IRestService restService;
         #endregion
 
         #region properties
@@ -55,17 +55,23 @@ namespace tg_engine
         {
             try
             {
-                logger?.inf(tag, $"Загрузка конфигурации сервиса...");
+                logger?.warn(tag, $"Инициализация сервиса...");
 
-                var vars = variables.getInstance();       
+                var vars = variables.getInstance();
+
+                restService = new RestService(logger, vars.tg_engine_variables.settings_rest);
+                restService.RequestProcessors.Add(new EngineControlRequestProcessor(this));
+                restService.Listen();
+
                 postgreProvider = new PostgreProvider(vars.tg_engine_variables.accounts_settings_db);
-
                 var dMStartupSettings  = await postgreProvider.GetStatupData();
-                await initDMhandlers(dMStartupSettings);                
+                await initDMhandlers(dMStartupSettings);
+
+                logger?.inf_urgent(tag, $"Инициализация выполнена");
 
             } catch (Exception ex)
             {
-                logger.err(tag, $"Не удалось загрузить конфигурацию сервиса {ex.Message}");
+                logger.err(tag, $"Не удалось выполнить инициализацию сервиса {ex.Message}");
             }
         }
         #endregion
@@ -87,7 +93,7 @@ namespace tg_engine
                 logger.err(tag, $"{ex.Message}");
             }
 
-            logger?.inf(tag, $"Запуск сервиса (вер. {Version})...");
+            logger?.warn(tag, $"Запуск сервиса (вер. {Version})...");
             await Task.CompletedTask;
             IsActive = true;
             logger?.inf_urgent(tag, $"Запуск выполнен");

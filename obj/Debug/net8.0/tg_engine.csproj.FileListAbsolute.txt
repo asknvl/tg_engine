@@ -15,3 +15,4 @@ C:\WORK\RaceUP\sources\tg_engine\obj\Debug\net8.0\tg_engine.csproj.AssemblyRefer
 C:\WORK\RaceUP\sources\tg_engine\obj\Debug\net8.0\tg_engine.csproj.Up2Date
 C:\WORK\RaceUP\sources\tg_engine\bin\Debug\net8.0\tg_engine.runtimeconfig.json
 C:\WORK\RaceUP\sources\tg_engine\obj\Debug\net8.0\tg_engine.genruntimeconfig.cache
+C:\WORK\RaceUP\sources\tg_engine\obj\Debug\net8.0\tg_engine.sourcelink.json

@@ -42,18 +42,7 @@ namespace tg_engine.database.postgre
         public async Task<List<DMStartupSettings>> GetStatupData()
         {
             using (var context = new PostgreDbContext(dbContextOptions))
-            {
-                //var query = from account in context.accounts                            
-                //            from channel_account in context.channels_accounts
-                //            join channel in context.channels on channel_account.channel_id equals channel.id
-                //            join source in context.sources on channel.id equals source.channel_id
-                //            select new
-                //            {
-                //                source = source.source_name,
-                //                account = account
-                //            };
-
-
+            {                
                 var query = from account in context.accounts
                             join channelAccount in context.channels_accounts on account.id equals channelAccount.account_id
                             join channel in context.channels on channelAccount.channel_id equals channel.id

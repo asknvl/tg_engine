@@ -64,9 +64,16 @@ namespace tg_engine.config
         public string password { get; set; } = "password";
     }
 
+    public class settings_rest
+    {
+        public int control_port { get; set; } = 7070;
+    }
+
     public class tg_engine_variables
     {
         public settings_db accounts_settings_db { get; set; } = new();
+        public settings_rest settings_rest { get; set; } = new();
+
     }
     
 }
