@@ -19,7 +19,7 @@ namespace tg_engine.dm
         #region properties                
         public DMStartupSettings settings { get; private set; }
         public UserApiHandlerBase user { get; private set; }        
-        public DMHandlerStatus status { get; private set; }  
+        public DMHandlerStatus status { get; private set; }
         #endregion
 
         public DMHandlerBase(DMStartupSettings settings, ILogger logger)
@@ -27,6 +27,8 @@ namespace tg_engine.dm
             this.settings = settings;
             this.logger = logger;
             userApiFactory = new UserApiFactory(settings.account.api_id, settings.account.api_hash, logger);
+
+            status = DMHandlerStatus.inactive;
         }
 
         #region public
@@ -34,7 +36,6 @@ namespace tg_engine.dm
         {
             user = userApiFactory.Get(settings.account.phone_number, settings.account.two_fa);
             await Task.CompletedTask;
-
             status = DMHandlerStatus.active;
         }
 
@@ -47,9 +48,9 @@ namespace tg_engine.dm
     }
 
     public enum DMHandlerStatus
-    {
-        active,
+    {        
         inactive,
+        active,
         verification,
         banned
     }

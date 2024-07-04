@@ -46,6 +46,8 @@ namespace tg_engine.rest
 
                 using var reader = new StreamReader(request.InputStream, request.ContentEncoding);                
                 var splt = path.Split('/');
+                var m = $"RX:\n{path}";
+                logger.dbg(TAG, m);
 
                 try
                 {
@@ -89,7 +91,7 @@ namespace tg_engine.rest
 
         async Task<(HttpStatusCode, string)> processPostRequest(HttpListenerContext context)
         {            
-            HttpStatusCode code = HttpStatusCode.NotFound;
+            HttpStatusCode code = HttpStatusCode.BadRequest;
             string text = code.ToString();
 
             await Task.Run(async () =>
@@ -109,7 +111,12 @@ namespace tg_engine.rest
                 {
                     switch (splt[1])
                     {
-                        case "control":                           
+                        case "control":
+                            var p = RequestProcessors.FirstOrDefault(p => p is EngineControlRequestProcessor);
+                            if (p != null)
+                            {
+                                (code, text) = await p.ProcessPostRequest(splt, requestBody);
+                            }
                             break;
 
 

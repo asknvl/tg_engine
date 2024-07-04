@@ -41,33 +41,120 @@ namespace tg_engine.rest
                     status = dm.status.ToString()
                 });
             }
-
             return res;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data">
+        /// "[
+        ///     "7823e188-6df4-4adf-8021-8f67a496b7a6",
+        ///     "7823e188-6df4-4adf-8021-8f67a496b7a6"
+        ///  ] или [] для запуска всех DMHandler"</param>
+        /// <param name="state">true-запуск, false-стоп</param>
+        /// <returns></returns>
+        async Task<(HttpStatusCode, string)> toggleDMHandlers(string data, bool state)
+        {
+            HttpStatusCode code = HttpStatusCode.OK;
+            string responseText = code.ToString();
+            
+            try
+            {
+                var guids = JsonConvert.DeserializeObject<List<Guid>>(data);
+                if (guids.Count == 0)
+                {
+                    foreach (var dm in tg_engine.DMHandlers)
+                    {
+                        if (state)
+                            await dm.Start();
+                        else
+                            dm.Stop();
+                    }
+                }
+                else
+                {
+                    foreach (var guid in guids)
+                    {
+                        var dm = tg_engine.DMHandlers.FirstOrDefault(d => d.settings.account.id == guid);
+                        if (dm != null)
+                        {
+                            if (state)
+                                await dm.Start();
+                            else
+                                dm.Stop();
+                        }
+                    }
+                }
+
+            } catch (Exception ex)
+            {
+                code = HttpStatusCode.InternalServerError;
+                responseText = $"{code.ToString()}:{ex.Message}";
+            }
+
+            return (code,  responseText);   
         }
         #endregion
 
         #region public
         public async Task<(HttpStatusCode, string)> ProcessGetRequest(string[] splt_route)
         {
-
             var code = HttpStatusCode.NotFound;
             var responseText = code.ToString();
 
-            switch (splt_route[2])
+            try
             {
-                case "pmhandlers":
-                    code = HttpStatusCode.OK;
-                    responseText = JsonConvert.SerializeObject(getDMHandlers(), Formatting.Indented);
-                    break;
+                switch (splt_route[2])
+                {
+                    case "pmhandlers":
+                        code = HttpStatusCode.OK;
+                        responseText = JsonConvert.SerializeObject(getDMHandlers(), Formatting.Indented);
+                        break;
+
+                    default:
+                        break;
+                }
+            } catch (Exception ex)
+            {
             }
 
             await Task.CompletedTask;
             return (code, responseText);
         }
 
-        public Task<(HttpStatusCode, string)> ProcessPostRequest(string[] splt_route, string data)
+        public async Task<(HttpStatusCode, string)> ProcessPostRequest(string[] splt_route, string data)
         {
-            throw new NotImplementedException();
+            var code = HttpStatusCode.NotFound;
+            var responseText = code.ToString();
+
+            try
+            {
+                switch (splt_route[2])
+                {
+                    case "pmhandlers":
+
+                        switch (splt_route[3])
+                        {
+                            case "start":
+                                (code, responseText) = await toggleDMHandlers(data, true);
+                                break;
+                            case "stop":
+                                (code, responseText) = await toggleDMHandlers(data, false);
+                                break;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+
+            await Task.CompletedTask;
+            return (code, responseText);
         }
         #endregion
     }
