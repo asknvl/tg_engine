@@ -62,30 +62,7 @@ namespace tg_engine.rest
             try
             {
                 var guids = JsonConvert.DeserializeObject<List<Guid>>(data);
-                if (guids.Count == 0)
-                {
-                    foreach (var dm in tg_engine.DMHandlers)
-                    {
-                        if (state)
-                            await dm.Start();
-                        else
-                            dm.Stop();
-                    }
-                }
-                else
-                {
-                    foreach (var guid in guids)
-                    {
-                        var dm = tg_engine.DMHandlers.FirstOrDefault(d => d.settings.account.id == guid);
-                        if (dm != null)
-                        {
-                            if (state)
-                                await dm.Start();
-                            else
-                                dm.Stop();
-                        }
-                    }
-                }
+                await tg_engine.ToggleDMHandlers(guids, state); 
 
             } catch (Exception ex)
             {
@@ -94,6 +71,20 @@ namespace tg_engine.rest
             }
 
             return (code,  responseText);   
+        }
+
+        (HttpStatusCode, string) getKeepAlive()
+        {
+            HttpStatusCode code = HttpStatusCode.ServiceUnavailable;
+            string responseText = $"{code}";
+
+            if (tg_engine.IsActive)
+            {
+                code = HttpStatusCode.OK;
+                responseText = $"{code} Service version {tg_engine.Version}";
+            }
+
+            return (code, responseText);
         }
         #endregion
 
@@ -110,6 +101,10 @@ namespace tg_engine.rest
                     case "pmhandlers":
                         code = HttpStatusCode.OK;
                         responseText = JsonConvert.SerializeObject(getDMHandlers(), Formatting.Indented);
+                        break;
+
+                    case "keepalive":
+                        (code, responseText) = getKeepAlive();
                         break;
 
                     default:

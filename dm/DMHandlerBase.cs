@@ -14,6 +14,7 @@ namespace tg_engine.dm
         #region vars
         IUserApiFactory userApiFactory;
         ILogger logger;
+        string tag;
         #endregion
 
         #region properties                
@@ -24,6 +25,8 @@ namespace tg_engine.dm
 
         public DMHandlerBase(DMStartupSettings settings, ILogger logger)
         {
+            tag = $"dm {settings.source}";
+
             this.settings = settings;
             this.logger = logger;
             userApiFactory = new UserApiFactory(settings.account.api_id, settings.account.api_hash, logger);
@@ -34,14 +37,23 @@ namespace tg_engine.dm
         #region public
         public virtual async Task Start()
         {
+            if (status == DMHandlerStatus.active)
+            {
+                logger.err($"{tag}", "Уже запущен");
+                return;
+            }
+                
+
             user = userApiFactory.Get(settings.account.phone_number, settings.account.two_fa);
             await Task.CompletedTask;
             status = DMHandlerStatus.active;
+            logger.inf_urgent($"{tag}", "Запуск выполнен");
         }
 
         public virtual void Stop()
         {
             status = DMHandlerStatus.inactive;
+            logger.warn($"{tag}", "Остановлен");
         }
         #endregion
 

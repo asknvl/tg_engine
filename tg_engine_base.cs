@@ -17,7 +17,6 @@ namespace tg_engine
         #region vars
         ILogger logger;                
         IPostgreProvider postgreProvider;
-
         IRestService restService;
         #endregion
 
@@ -40,15 +39,18 @@ namespace tg_engine
         }
 
         #region private
-        async Task initDMhandlers(List<DMStartupSettings> startupSettings)
+        async Task initDMhandlers(List<DMStartupSettings> dmStartupSettings)
         {
-            foreach (var settings in startupSettings)
+            foreach (var settings in dmStartupSettings)
             {
-
                 Debug.WriteLine($"{settings.source} {settings.account.phone_number}");
 
-                var dm = new DMHandlerBase(settings, logger);                                
-                DMHandlers.Add(dm);                
+                var found = DMHandlers.FirstOrDefault(d => d.settings.account.id == settings.account.id);
+                if (found == null)
+                {
+                    var dm = new DMHandlerBase(settings, logger);
+                    DMHandlers.Add(dm);
+                }
             }
         }
         async Task initService()
@@ -64,8 +66,8 @@ namespace tg_engine
                 restService.Listen();
 
                 postgreProvider = new PostgreProvider(vars.tg_engine_variables.accounts_settings_db);
-                var dMStartupSettings  = await postgreProvider.GetStatupData();
-                await initDMhandlers(dMStartupSettings);
+                //var dMStartupSettings  = await postgreProvider.GetStatupData();
+                //await initDMhandlers(dMStartupSettings);
 
                 logger?.inf_urgent(tag, $"Инициализация выполнена");
 
@@ -77,7 +79,7 @@ namespace tg_engine
         #endregion
 
         #region public
-        public virtual async Task Start()
+        public virtual async Task Run()
         {
             try
             {
@@ -86,7 +88,7 @@ namespace tg_engine
                     throw new Exception("Сервис уже запущен");
 
                 await initService();
-
+                await ToggleDMHandlers(null, true);
 
             } catch (Exception ex)
             {
@@ -98,12 +100,40 @@ namespace tg_engine
             IsActive = true;
             logger?.inf_urgent(tag, $"Запуск выполнен");
         }
-        #endregion
-
         public virtual async Task Stop()
         {
             await Task.CompletedTask;
             logger.warn(tag, "Cервис остановлен");
         }
+        public virtual async Task ToggleDMHandlers(List<Guid> guids, bool state)
+        {
+            var dMStartupSettings = await postgreProvider.GetStatupData();
+            await initDMhandlers(dMStartupSettings);
+
+            if (guids == null || guids.Count == 0)
+            {
+                foreach (var dm in DMHandlers)
+                {
+                    if (state)
+                        dm.Start();
+                    else
+                        dm.Stop();
+                }
+            } else
+            {
+                foreach (var guid in guids)
+                {
+                    var dm = DMHandlers.FirstOrDefault(d => d.settings.account.id == guid);
+                    if (dm != null)
+                    {
+                        if (state)
+                            dm.Start();
+                        else
+                            dm.Stop();
+                    }
+                }
+            }
+        }
+        #endregion        
     }
 }
