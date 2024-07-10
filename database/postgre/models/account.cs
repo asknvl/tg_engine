@@ -17,7 +17,6 @@ namespace tg_engine.database.postgre.models
         public string api_id { get; set; }
         public string api_hash { get; set; }
         public int? status_id { get; set; } 
-        public DateTime created_at { get; set; }
-        public DateTime updated_at { get; set; }
+
     }
 }

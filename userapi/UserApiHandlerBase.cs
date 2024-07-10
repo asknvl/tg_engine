@@ -4,16 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using tg_engine.interlayer.messaging;
 using TL;
+using WTelegram;
 
 namespace tg_engine.userapi
 {
     public class UserApiHandlerBase
     {
-        #region const
-        const string tag = "usrapi";        
-        #endregion
-
         #region properties
         public string phone_number { get; set; }
         public string _2fa_password { get; set; }
@@ -21,18 +19,38 @@ namespace tg_engine.userapi
         public string api_hash { get; set; }
         public long tg_id { get; set; }
         public string username { get; set; }
-        public UserApiStatus status { get; set; }
+
+        UserApiStatus _status;
+        public UserApiStatus status
+        {
+            get => _status;
+            set
+            {
+                _status = value;
+                StatusChangedEvent?.Invoke(_status);
+            }
+        }
         #endregion
 
         #region vars
+        string tag;
+        protected Client user;
+        UpdateManager manager;
         ILogger logger;
-        string session_directory = Path.Combine("C:", "userpool");
+
+        string session_directory = Path.Combine("C:", "tgengine", "userpool");
+        string updates_directory = Path.Combine("C:", "tgengine", "updates");
+
         string verifyCode;
         readonly ManualResetEventSlim verifyCodeReady = new();
+
+        protected TGProviderBase tgProvider;
         #endregion
 
-        public UserApiHandlerBase(string phone_number, string _2fa_password, string api_id, string api_hash, ILogger logger)
+        public UserApiHandlerBase(string phone_number, string _2fa_password, string api_id, string api_hash, TGProviderBase tgProvider, ILogger logger)
         {
+            tag = $"usrapi ..{phone_number.Substring(phone_number.Length - 5, 4)}";
+
             this.phone_number = phone_number;
             this._2fa_password = _2fa_password;
             this.api_id = api_id;
@@ -40,7 +58,9 @@ namespace tg_engine.userapi
 
             this.logger = logger;
 
-            status = UserApiStatus.stopped;
+            this.tgProvider = tgProvider;
+
+            status = UserApiStatus.inactive;
         }
 
         #region private
@@ -54,7 +74,7 @@ namespace tg_engine.userapi
 
                 case "SESSION_REVOKED":
                 case "AUTH_KEY_UNREGISTERED":
-                    status = UserApiStatus.revked;
+                    status = UserApiStatus.revoked;
                     break;
 
             }
@@ -74,7 +94,8 @@ namespace tg_engine.userapi
                 case "session_pathname": return $"{session_directory}/{phone_number}.session";
                 case "phone_number": return phone_number;
                 case "verification_code":
-                    status = UserApiStatus.verification;                  
+                    status = UserApiStatus.verification;
+                    logger.warn(tag, "Запрос кода верификации");
                     verifyCodeReady.Reset();
                     verifyCodeReady.Wait();
                     return verifyCode;                
@@ -85,42 +106,122 @@ namespace tg_engine.userapi
         #endregion
 
         #region public
-        public virtual Task Start()
+        public virtual async Task Start()
         {
+
+            if (!Directory.Exists(updates_directory))
+                Directory.CreateDirectory(updates_directory);
+            var state_path = Path.Combine(updates_directory, $"{phone_number}.state");
+
             try
             {
+                if (status == UserApiStatus.active)
+                {
+                    logger.err(tag, "Уже запущен");
+                    return;
+                }
 
+                user = new Client(config);
+                
+                manager = user.WithUpdateManager(User_OnUpdate, state_path);
+                await user.LoginUserIfNeeded();
+                var dialogs = await user.Messages_GetAllDialogs(); // dialogs = groups/channels/users
+                dialogs.CollectUsersChats(manager.Users, manager.Chats);
+                manager.SaveState(state_path);
+
+                                
+                //var diff = await user.Updates_GetDifference(0, DateTime.UtcNow, 0);
+
+                //user.OnUpdates += User_OnUpdates;
+                //user.OnOwnUpdates += User_OnOwnUpdates;
+                //user.OnOther += User_OnOther;
+                //var u = await user.LoginUserIfNeeded();
+
+                status = UserApiStatus.active;
+                
             }
             catch (RpcException ex)
             {
                 processRpcException(ex);
+                status = UserApiStatus.inactive;
+                user.Dispose();
+                throw;
             }
             catch (Exception ex)
             {
-
-            }
-            return Task.CompletedTask;
+                status = UserApiStatus.inactive;
+                user.Dispose();
+                throw;
+            }            
         }
 
-        public void SetVerifyCode(string code)
+        private async Task User_OnUpdate(Update update)
         {
+            switch (update)
+            {
+                case UpdateNewMessage unm:
+
+                    try
+                    {
+
+                        manager.Users.TryGetValue(unm.message.Peer.ID, out var user);
+                        await tgProvider.OnMessageRX(unm, user);
+
+                        //logger.inf(tag, $"NewMessage from: {user.first_name} {user.last_name} {user.username} {user.id}");
+                    } catch (Exception ex)
+                    {
+                        logger.err(tag, ex.Message);
+                    }
+                    break;
+            }
+
+
+
+            logger.inf(tag, update.ToString());
+            await Task.CompletedTask;
+        }
+
+        //private async Task User_OnOther(IObject arg)
+        //{
+        //    await Task.CompletedTask;
+        //}
+
+        //private async Task User_OnOwnUpdates(UpdatesBase arg)
+        //{
+        //    await Task.CompletedTask;
+        //}
+
+        //private async Task User_OnUpdates(UpdatesBase arg)
+        //{
+        //    await Task.CompletedTask;
+        //}
+
+        public void SetVerificationCode(string code)
+        {
+            logger.user_input(tag, $"Ввод кода верификации {code}");
             verifyCode = code;
+            verifyCodeReady.Set();
         }
 
         public virtual void Stop()
         {
+            user?.Dispose();
+            verifyCodeReady.Set();
+            status = UserApiStatus.inactive;
         }
+        #endregion
 
-        public UserApiStatus GetStatus() { return status; }
+        #region events        
+        public event Action<UserApiStatus> StatusChangedEvent;
         #endregion
     }
 
     public enum UserApiStatus : int
-    {
-        stopped = 0,
-        active = 1,
-        verification = 2,
-        banned = 3,
-        revked = 4
+    {        
+        active = 1,        
+        banned = 2,
+        inactive = 3,
+        verification = 4,
+        revoked = 5
     }
 }

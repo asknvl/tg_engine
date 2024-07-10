@@ -7,11 +7,12 @@ using System.Threading.Tasks;
 
 namespace tg_engine.database.postgre.models
 {
-    public class channel_account
+    public class telegram_chat
     {
         [Key]
         public Guid id { get; set; }
-        public Guid channel_id { get; set; }
-        public Guid account_id { get; set; }        
+        public Guid account_id { get; set; }
+        public Guid telegram_user_id { get; set; }
+        public string chat_type { get; set; }                       
     }
 }

@@ -14,7 +14,7 @@ namespace tg_engine.rest
     public class RestService : IRestService
     {
         #region const
-        string TAG = "rest";
+        string tag = "rest";
         #endregion
 
         #region vars
@@ -47,7 +47,7 @@ namespace tg_engine.rest
                 using var reader = new StreamReader(request.InputStream, request.ContentEncoding);                
                 var splt = path.Split('/');
                 var m = $"RX:\n{path}";
-                logger.dbg(TAG, m);
+                logger.dbg(tag, m);
 
                 try
                 {
@@ -58,27 +58,8 @@ namespace tg_engine.rest
                             if (p != null)
                             {
                                 (code, text) = await p.ProcessGetRequest(splt);
-                            }
-
-                            //switch (splt[2])
-                            //{
-                            //    case "pmhandlers":
-                            //        var p = RequestProcessors.FirstOrDefault(p => p is EngineControlRequestProcessor);
-                            //        if (p != null)
-                            //        {
-                            //            (code, text) = await p.ProcessGetRequest(null);
-                            //        }
-                            //        break;
-                            //}
-                            break;
-
-                            //case "diagnostics":
-                            //    var p = RequestProcessors.FirstOrDefault(p => p is DiagnosticsRequestProcessor);
-                            //    if (p != null)
-                            //    {
-                            //        (code, text) = await p.ProcessRequest(); 
-                            //    }
-                            //    break;
+                            }                           
+                            break;                           
                     }
                 } catch (Exception ex)
                 {
@@ -105,7 +86,7 @@ namespace tg_engine.rest
                 var splt = path.Split('/');
 
                 var m = $"RX:\n{path}\n{requestBody}";
-                logger.dbg(TAG, m);
+                logger.dbg(tag, m);
 
                 try
                 {
@@ -175,7 +156,7 @@ namespace tg_engine.rest
             await output.WriteAsync(buffer, 0, buffer.Length);
 
             var m = $"TX:\n{code}";
-            logger.dbg(TAG, m);
+            logger.dbg(tag, m);
 
         }
         #endregion
@@ -191,17 +172,16 @@ namespace tg_engine.rest
             listener.Prefixes.Add($"http://*:{{settings.control_port}}/control/");            
 #endif
             try
-            {
-                logger.inf(TAG, $"Запуск HTTP сервера, порт {settings.control_port}");
+            {             
                 listener.Start();
             }
             catch (Exception ex)
             {
-                logger.err(TAG, $"Не удалось запустить HTTP сервер {ex.Message}");
+                logger.err(tag, $"Не удалось запустить HTTP сервер {ex.Message}");
                 throw;
             }
 
-            logger.inf(TAG, "HTTP сервер запущен");
+            logger.inf_urgent(tag, $"HTTP сервер запущен, порт {settings.control_port}");
 
             while (true)
             {
@@ -211,7 +191,7 @@ namespace tg_engine.rest
                     await processRequest(context);
                 } catch (Exception ex)
                 {
-                    logger.err(TAG, ex.Message);
+                    logger.err(tag, ex.Message);
                 }
             }
         }

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using tg_engine.config;
+using tg_engine.database.mongo;
 using tg_engine.database.postgre;
 using tg_engine.dm;
 using tg_engine.rest;
@@ -17,6 +18,7 @@ namespace tg_engine
         #region vars
         ILogger logger;                
         IPostgreProvider postgreProvider;
+        IMongoProvider mongoProvider;
         IRestService restService;
         #endregion
 
@@ -39,7 +41,7 @@ namespace tg_engine
         }
 
         #region private
-        async Task initDMhandlers(List<DMStartupSettings> dmStartupSettings)
+        async Task initDMhandlers(List<DMStartupSettings> dmStartupSettings, IPostgreProvider postgreProvider, IMongoProvider mongoProvider)
         {
             foreach (var settings in dmStartupSettings)
             {
@@ -48,7 +50,7 @@ namespace tg_engine
                 var found = DMHandlers.FirstOrDefault(d => d.settings.account.id == settings.account.id);
                 if (found == null)
                 {
-                    var dm = new DMHandlerBase(settings, logger);
+                    var dm = new DMHandlerBase(settings, postgreProvider, mongoProvider, logger);
                     DMHandlers.Add(dm);
                 }
             }
@@ -57,8 +59,6 @@ namespace tg_engine
         {
             try
             {
-                logger?.warn(tag, $"Инициализация сервиса...");
-
                 var vars = variables.getInstance();
 
                 restService = new RestService(logger, vars.tg_engine_variables.settings_rest);
@@ -66,14 +66,15 @@ namespace tg_engine
                 restService.Listen();
 
                 postgreProvider = new PostgreProvider(vars.tg_engine_variables.accounts_settings_db);
-                //var dMStartupSettings  = await postgreProvider.GetStatupData();
-                //await initDMhandlers(dMStartupSettings);
+                var dMStartupSettings  = await postgreProvider.GetStatupData();
+
+                await initDMhandlers(dMStartupSettings, postgreProvider, mongoProvider);
 
                 logger?.inf_urgent(tag, $"Инициализация выполнена");
 
             } catch (Exception ex)
             {
-                logger.err(tag, $"Не удалось выполнить инициализацию сервиса {ex.Message}");
+                throw new Exception($"Не удалось выполнить инициализацию сервиса {ex.Message}");
             }
         }
         #endregion
@@ -83,22 +84,21 @@ namespace tg_engine
         {
             try
             {
-
                 if (IsActive)
                     throw new Exception("Сервис уже запущен");
 
                 await initService();
-                await ToggleDMHandlers(null, true);
+                //await ToggleDMHandlers(null, true);
 
             } catch (Exception ex)
             {
-                logger.err(tag, $"{ex.Message}");
+                logger?.err(tag, $"Не удалось запустить сервис {ex.Message}");
+                return;
             }
 
-            logger?.warn(tag, $"Запуск сервиса (вер. {Version})...");
             await Task.CompletedTask;
             IsActive = true;
-            logger?.inf_urgent(tag, $"Запуск выполнен");
+            logger?.inf_urgent(tag, $"Запуск выполнен, вер. {Version}");
         }
         public virtual async Task Stop()
         {
@@ -108,7 +108,7 @@ namespace tg_engine
         public virtual async Task ToggleDMHandlers(List<Guid> guids, bool state)
         {
             var dMStartupSettings = await postgreProvider.GetStatupData();
-            await initDMhandlers(dMStartupSettings);
+            await initDMhandlers(dMStartupSettings, postgreProvider, mongoProvider);
 
             if (guids == null || guids.Count == 0)
             {

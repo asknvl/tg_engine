@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using TL;
 
 namespace tg_engine.rest
 {
@@ -24,7 +25,13 @@ namespace tg_engine.rest
             public Guid id { get; set; }
             public string source { get; set; }
             public string phone_number { get; set; }
-            public string status { get; set; }
+            public int status { get; set; }
+        }
+
+        class verifyCodeDto
+        {
+            public Guid id { get; set; }
+            public string code { get; set; }
         }
         #endregion
 
@@ -34,11 +41,11 @@ namespace tg_engine.rest
             List<dmHandlerDto> res = new();
 
             foreach (var dm in tg_engine.DMHandlers) {
-                res.Add(new dmHandlerDto() { 
+                res.Add(new dmHandlerDto() {
                     id = dm.settings.account.id,
                     source = dm.settings.source,
                     phone_number = dm.settings.account.phone_number,
-                    status = dm.status.ToString()
+                    status = (int)dm.status
                 });
             }
             return res;
@@ -86,6 +93,29 @@ namespace tg_engine.rest
 
             return (code, responseText);
         }
+
+        (HttpStatusCode, string) setVerificationCode(string data)
+        {
+            HttpStatusCode code = HttpStatusCode.OK;
+            string responseText = code.ToString();
+
+            try
+            {
+                var vc = JsonConvert.DeserializeObject<verifyCodeDto>(data);
+                var found = tg_engine.DMHandlers.FirstOrDefault(d => d.settings.account.id == vc.id);
+                if (found != null)
+                {
+                    found.SetVerificationCode(vc.code);
+                }
+
+            } catch (Exception ex)
+            {
+                code = HttpStatusCode.BadRequest;
+                responseText = $"{code.ToString()}:{ex.Message}";
+            }
+
+            return (code, responseText);
+        }
         #endregion
 
         #region public
@@ -98,7 +128,7 @@ namespace tg_engine.rest
             {
                 switch (splt_route[2])
                 {
-                    case "pmhandlers":
+                    case "dmhandlers":
                         code = HttpStatusCode.OK;
                         responseText = JsonConvert.SerializeObject(getDMHandlers(), Formatting.Indented);
                         break;
@@ -127,7 +157,7 @@ namespace tg_engine.rest
             {
                 switch (splt_route[2])
                 {
-                    case "pmhandlers":
+                    case "dmhandlers":
 
                         switch (splt_route[3])
                         {
@@ -136,6 +166,9 @@ namespace tg_engine.rest
                                 break;
                             case "stop":
                                 (code, responseText) = await toggleDMHandlers(data, false);
+                                break;
+                            case "code":
+                                (code, responseText) = setVerificationCode(data);
                                 break;
                         }
                         break;

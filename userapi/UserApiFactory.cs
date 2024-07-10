@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using tg_engine.interlayer.messaging;
 
 namespace tg_engine.userapi
 {
@@ -20,9 +21,9 @@ namespace tg_engine.userapi
             this.api_id = api_id;
             this.api_hash = api_hash;
         }
-        public UserApiHandlerBase Get(string phone_number, string _2fa_password)
+        public UserApiHandlerBase Get(string phone_number, string _2fa_password, TGProviderBase tgProvider)
         {
-            return new userapi_handler_v0(phone_number, _2fa_password, api_id, api_hash, logger );
+            return new userapi_handler_v0(phone_number, _2fa_password, api_id, api_hash, tgProvider, logger );
         }
     }
 }
