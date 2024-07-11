@@ -72,6 +72,7 @@ namespace tg_engine.config
     public class tg_engine_variables
     {
         public settings_db accounts_settings_db { get; set; } = new();
+        public settings_db messaging_settings_db { get; set; } = new();
         public settings_rest settings_rest { get; set; } = new();
 
     }

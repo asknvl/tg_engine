@@ -20,17 +20,17 @@ namespace tg_engine.interlayer.chats
             this.postgreProvider = postgreProvider;
         }
 
-        public async Task<bool> CollectUserChat(Guid account_id, telegram_user user)
+        public async Task<UserChat> CollectUserChat(Guid account_id, telegram_user user)
         {
             bool res = true;
-            var found = userChats.FirstOrDefault(uc => uc.chat.account_id == account_id && uc.user.telegram_id == user.telegram_id);
-            if (found == null)
+            var userChat = userChats.FirstOrDefault(uc => uc.chat.account_id == account_id && uc.user.telegram_id == user.telegram_id);
+            if (userChat == null)
             {              
                 res = false;
-                var userChat = await postgreProvider.CreateUserAndChat(account_id, user);
+                userChat = await postgreProvider.CreateUserAndChat(account_id, user);
                 userChats.Add(userChat);
             }
-            return res;
+            return userChat;
         }
     }
 }

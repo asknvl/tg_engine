@@ -68,6 +68,8 @@ namespace tg_engine
                 postgreProvider = new PostgreProvider(vars.tg_engine_variables.accounts_settings_db);
                 var dMStartupSettings  = await postgreProvider.GetStatupData();
 
+                mongoProvider = new MongoProvider(vars.tg_engine_variables.messaging_settings_db);
+
                 await initDMhandlers(dMStartupSettings, postgreProvider, mongoProvider);
 
                 logger?.inf_urgent(tag, $"Инициализация выполнена");

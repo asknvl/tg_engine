@@ -44,6 +44,26 @@ namespace tg_engine.interlayer.messaging
         }
         #endregion
 
+        #region helpers
+        bool isIncoming(UpdateNewMessage unm)
+        {
+            var message = unm.message as Message;
+            if (message != null)
+                return !message.flags.HasFlag(TL.Message.Flags.out_);
+            else
+                throw new Exception("isIncoming: message=null");
+        }
+
+        string getText(UpdateNewMessage unm)
+        {
+            var message = unm.message as Message;
+            if (message != null)
+                return message.message;
+            else
+                throw new Exception("getText: message=null");
+        }
+        #endregion
+
         #region public
         //Сообщение получено из ТГ
         public async Task OnMessageRX(TL.UpdateNewMessage unm, TL.User user) {
@@ -61,10 +81,53 @@ namespace tg_engine.interlayer.messaging
                 Stopwatch stopwatch = new Stopwatch();
 
                 stopwatch.Start();
-                var exists = await chatsProvider.CollectUserChat(account_id, u);
-                stopwatch.Stop();
+                var userChat = await chatsProvider.CollectUserChat(account_id, u);                
 
-                logger.inf(tag, $"{user.ID} exists={exists} time={stopwatch.ElapsedMilliseconds} ms");
+                var chat_id = userChat.chat.id;
+                var direction = (isIncoming(unm)) ? "in" : "out";
+                var telegram_message_id = unm.message.ID;
+                var text = getText(unm);
+                var date = unm.message.Date;
+
+                //var messages = await mongoProvider.GetMessages(chat_id);
+
+                var message = new MessageBase()
+                {
+                    chat_id = chat_id,
+                    direction = direction,
+                    telegram_message_id = telegram_message_id,
+                    text = text,
+                    date = date
+                };
+
+                bool exists = false;
+                try
+                {
+                    await mongoProvider.SaveMessage(message);
+                } catch (Exception e)
+                {
+                    exists = true;
+                    logger.warn(tag, $"Сообщение с telegram_message_id={telegram_message_id} уже существует");
+                }
+
+                //var exists = await mongoProvider.CheckMessageExists(telegram_message_id);
+                //if (!exists)
+                //{
+                //    var message = new MessageBase()
+                //    {
+                //        chat_id = chat_id,
+                //        direction = direction,
+                //        telegram_message_id = telegram_message_id,
+                //        text = text,
+                //        date = date
+                //    };
+
+                //    await mongoProvider.SaveMessage(message);
+                //}
+
+                logger.inf(tag, $"{direction}:{userChat.user.telegram_id} {userChat.user.firstname} {userChat.user.lastname} exists={exists} time={stopwatch.ElapsedMilliseconds} ms");
+
+                stopwatch.Stop();
 
             } catch (Exception ex)
             {
